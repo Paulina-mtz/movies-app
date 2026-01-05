@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+*.log
+.DS_Store
+
+# Kubernetes secrets (por seguridad)
+*secret*
+

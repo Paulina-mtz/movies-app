@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movies-db
+  namespace: movies
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movies-db
+  template:
+    metadata:
+      labels:
+        app: movies-db
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/postgres_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: dbschema
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            - name: pgsecret
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+        - name: dbschema
+          configMap:
+            name: db-schema
+        - name: pgsecret
+          secret:
+            secretName: postgres-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movies-db
+  namespace: movies
+spec:
+  selector:
+    app: movies-db
+  ports:
+    - port: 5432
+      targetPort: 5432

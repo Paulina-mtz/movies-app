@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Movies App - Top 50</title>
+</head>
+<body>
+  <h1>Top 50 (>= 50 valoraciones)</h1>
+  <p><a href="/">Volver al inicio</a></p>
+
+  <table border="1" cellpadding="6">
+    <tr>
+      <th>Título</th><th>Año</th><th>Géneros</th><th>Media</th><th>#Ratings</th>
+    </tr>
+    {% for m in movies %}
+    <tr>
+      <td><a href="/movies/{{ m.movie_id }}">{{ m.title }}</a></td>
+      <td>{{ m.year or "" }}</td>
+      <td>{{ m.genres }}</td>
+      <td>{{ "%.2f"|format(m.avg_rating) }}</td>
+      <td>{{ m.num_ratings }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

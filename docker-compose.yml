@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16
+    container_name: movies-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: moviesdb
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - movies-net
+
+  api-web:
+    image: paulinamtz7/movies-api-web:1.2
+    container_name: api-web
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      POSTGRES_DB: moviesdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      RECOMMENDER_URL: http://recommender:5001
+    secrets:
+      - postgres_password
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      - db
+      - recommender
+    networks:
+      - movies-net
+
+  recommender:
+    image: paulinamtz7/movies-recommender:1.1
+    container_name: recommender
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      POSTGRES_DB: moviesdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    depends_on:
+      - db
+    networks:
+      - movies-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-web
+    networks:
+      - movies-net
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+volumes:
+  db_data:
+
+networks:
+  movies-net:

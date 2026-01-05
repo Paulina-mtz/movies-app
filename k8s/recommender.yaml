@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommender
+  namespace: movies
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recommender
+  template:
+    metadata:
+      labels:
+        app: recommender
+    spec:
+      containers:
+        - name: recommender
+          image: paulinamtz7/movies-recommender:1.1
+          ports:
+            - containerPort: 5001
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: DB_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/pgsecret/postgres_password
+
+          volumeMounts:
+            - name: pgsecret
+              mountPath: /etc/pgsecret
+              readOnly: true
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+      volumes:
+        - name: pgsecret
+          secret:
+            secretName: postgres-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommender
+  namespace: movies
+spec:
+  selector:
+    app: recommender
+  ports:
+    - port: 5001
+      targetPort: 5001
+

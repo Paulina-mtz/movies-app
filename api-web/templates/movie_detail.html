@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ movie.title }}</title>
+</head>
+<body>
+
+  <h1>{{ movie.title }}{% if movie.year %} ({{ movie.year }}){% endif %}</h1>
+
+  <p><strong>Año:</strong> {{ movie.year if movie.year else "N/D" }}</p>
+  <p><strong>Géneros:</strong> {{ movie.genres if movie.genres else "N/D" }}</p>
+  <p><strong>Media de rating:</strong>
+    {% if movie.avg_rating is not none and movie.avg_rating != "" %}
+      {{ "%.2f"|format(movie.avg_rating|float) }}
+    {% else %}
+      N/D
+    {% endif %}
+  </p>
+  <p><strong>Número de valoraciones:</strong> {{ movie.num_ratings if movie.num_ratings is not none else "N/D" }}</p>
+
+  <h2>Recomendaciones similares</h2>
+
+  {% if recommendations and recommendations|length > 0 %}
+    <ul>
+      {% for r in recommendations %}
+        <li>
+          <a href="/movies/{{ r.movie_id }}">{{ r.title }}</a>
+          {% if r.year %} ({{ r.year }}){% endif %}
+          -
+          {% if r.avg_rating is not none and r.avg_rating != "" %}
+            {{ "%.2f"|format(r.avg_rating|float) }}
+          {% else %}
+            N/D
+          {% endif %}
+          ⭐
+          [{{ r.num_ratings if r.num_ratings is not none else "N/D" }} valoraciones]
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No hay recomendaciones disponibles para esta película.</p>
+  {% endif %}
+
+  <p><a href="/movies">Volver al listado</a> | <a href="/">Volver al inicio</a></p>
+
+</body>
+</html>
