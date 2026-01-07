@@ -8,3 +8,4 @@ __pycache__/
 # Kubernetes secrets (por seguridad)
 *secret*
 
+.env

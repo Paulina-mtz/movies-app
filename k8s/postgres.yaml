@@ -30,8 +30,11 @@ spec:
                 configMapKeyRef:
                   name: movies-config
                   key: POSTGRES_DB
-            - name: POSTGRES_PASSWORD_FILE
-              value: /run/secrets/postgres_password
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password
+                  key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:
@@ -40,9 +43,6 @@ spec:
             - name: dbschema
               mountPath: /docker-entrypoint-initdb.d
               readOnly: true
-            - name: pgsecret
-              mountPath: /run/secrets
-              readOnly: true
       volumes:
         - name: pgdata
           persistentVolumeClaim:
@@ -50,9 +50,6 @@ spec:
         - name: dbschema
           configMap:
             name: db-schema
-        - name: pgsecret
-          secret:
-            secretName: postgres-password
 ---
 apiVersion: v1
 kind: Service

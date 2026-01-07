@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-movielens
+  namespace: movies
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+
+      initContainers:
+        - name: fetch-movielens
+          image: alpine:3.20
+          command: ["/bin/sh","-lc"]
+          args:
+            - apk add --no-cache curl unzip >/dev/null &&
+              mkdir -p /data &&
+              curl -L -o /tmp/ml.zip https://files.grouplens.org/datasets/movielens/ml-latest-small.zip &&
+              unzip -q /tmp/ml.zip -d /tmp/ml &&
+              mv /tmp/ml/ml-latest-small/* /data/
+          volumeMounts:
+            - name: moviedata
+              mountPath: /data
+
+      containers:
+        - name: psql-loader
+          image: postgres:16
+          env:
+            - name: PGHOST
+              value: "movies-db"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_DB
+            - name: PGUSER
+              valueFrom:
+                configMapKeyRef:
+                  name: movies-config
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password
+                  key: POSTGRES_PASSWORD
+          command: ["/bin/sh","-lc"]
+          args:
+            - >
+              set -eu;
+              echo "Waiting for Postgres...";
+              i=0;
+              while [ "$i" -lt 60 ]; do
+                pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" && break;
+                i=$((i+1));
+                sleep 2;
+              done;
+
+              echo "Creating staging tables...";
+              psql -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS movies_raw;";
+              psql -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS ratings_raw;";
+              psql -v ON_ERROR_STOP=1 -c "CREATE TABLE movies_raw (movieId INTEGER, title TEXT, genres TEXT);";
+              psql -v ON_ERROR_STOP=1 -c "CREATE TABLE ratings_raw (userId INTEGER, movieId INTEGER, rating NUMERIC(2,1), ts BIGINT);";
+
+              echo "Loading CSVs into staging...";
+              psql -v ON_ERROR_STOP=1 -c "\copy movies_raw(movieId,title,genres) FROM '/data/movies.csv' CSV HEADER";
+              psql -v ON_ERROR_STOP=1 -c "\copy ratings_raw(userId,movieId,rating,ts) FROM '/data/ratings.csv' CSV HEADER";
+
+              echo "Inserting into final tables...";
+              psql -v ON_ERROR_STOP=1 -c "TRUNCATE TABLE ratings, movies;";
+
+              psql -v ON_ERROR_STOP=1 -c "INSERT INTO movies(movie_id,title,genres,year) SELECT movieId, title, genres, NULLIF(substring(title from '\(([0-9]{4})\)'), '')::int FROM movies_raw;";
+              psql -v ON_ERROR_STOP=1 -c "INSERT INTO ratings(user_id,movie_id,rating,ts) SELECT userId, movieId, rating, ts FROM ratings_raw;";
+
+              psql -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS movies_count FROM movies;";
+              psql -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS ratings_count FROM ratings;";
+
+              echo "Done."
+          volumeMounts:
+            - name: moviedata
+              mountPath: /data
+
+      volumes:
+        - name: moviedata
+          emptyDir: {}

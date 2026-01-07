@@ -13,6 +13,7 @@ spec:
       labels:
         app: recommender
     spec:
+      enableServiceLinks: false
       containers:
         - name: recommender
           image: paulinamtz7/movies-recommender:1.1
@@ -39,32 +40,27 @@ spec:
                 configMapKeyRef:
                   name: movies-config
                   key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD_FILE
-              value: /etc/pgsecret/postgres_password
-
-          volumeMounts:
-            - name: pgsecret
-              mountPath: /etc/pgsecret
-              readOnly: true
-
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password
+                  key: POSTGRES_PASSWORD
+            - name: APP_PORT
+              value: "5001"
+            - name: RECOMMENDER_PORT
+              value: "5001"
           readinessProbe:
             httpGet:
               path: /health
               port: 5001
             initialDelaySeconds: 5
             periodSeconds: 10
-
           livenessProbe:
             httpGet:
               path: /health
               port: 5001
             initialDelaySeconds: 15
             periodSeconds: 20
-
-      volumes:
-        - name: pgsecret
-          secret:
-            secretName: postgres-password
 ---
 apiVersion: v1
 kind: Service
@@ -77,4 +73,3 @@ spec:
   ports:
     - port: 5001
       targetPort: 5001
-
