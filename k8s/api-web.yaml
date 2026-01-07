@@ -13,19 +13,7 @@ spec:
       labels:
         app: api-web
     spec:
-      initContainers:
-        - name: fetch-movielens
-          image: alpine:3.20
-          command: ["/bin/sh","-lc"]
-          args:
-            - apk add --no-cache curl unzip >/dev/null &&
-              mkdir -p /data &&
-              curl -L -o /tmp/ml.zip https://files.grouplens.org/datasets/movielens/ml-latest-small.zip &&
-              unzip -q /tmp/ml.zip -d /tmp/ml &&
-              mv /tmp/ml/ml-latest-small/* /data/
-          volumeMounts:
-            - name: moviedata
-              mountPath: /data
+      enableServiceLinks: false
       containers:
         - name: api-web
           image: paulinamtz7/movies-api-web:1.2
@@ -52,38 +40,28 @@ spec:
                 configMapKeyRef:
                   name: movies-config
                   key: POSTGRES_USER
-            - name: POSTGRES_PASSWORD_FILE
-              value: /run/secrets/postgres_password
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-password
+                  key: POSTGRES_PASSWORD
             - name: RECOMMENDER_URL
               valueFrom:
                 configMapKeyRef:
                   name: movies-config
                   key: RECOMMENDER_URL
-          volumeMounts:
-            - name: pgsecret
-              mountPath: /run/secrets
-              readOnly: true
-            - name: moviedata
-              mountPath: /app/data
-              readOnly: true
-      volumes:
-        - name: pgsecret
-          secret:
-            secretName: postgres-password
-        - name: moviedata
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: api-web
-  namespace: movies
-spec:
-  selector:
-    app: api-web
-  ports:
-    - port: 5000
-      targetPort: 5000
+            - name: API_WEB_PORT
+              value: "5000"
+
+          # 🔥 RECURSOS VERSIONADOS (REQUERIDOS PARA HPA)
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+
 ---
 apiVersion: v1
 kind: Service
